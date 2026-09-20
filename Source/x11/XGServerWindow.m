@@ -4832,6 +4832,7 @@ _workAreas(Display *dpy, Window root, CGFloat screenHeight)
 		      xScreenSize.height - crtc_info->height - crtc_info->y,
 		      crtc_info->width,
 		      crtc_info->height);
+		  monitors[mi].workArea = monitors[mi].frame;
                   /* Add monitor ID (index in monitors array).
                    * Put primary monitor ID at index 0 since
 		   * NSScreen gets this as main screen if application
@@ -4862,7 +4863,7 @@ _workAreas(Display *dpy, Window root, CGFloat screenHeight)
 	       */
 	      if (1 == monitorsCount && workAreas != nil)
 		{
-		  monitors[0].frame = [[workAreas firstObject] rectValue];
+		  monitors[0].workArea = [[workAreas firstObject] rectValue];
 		}
               XRRFreeScreenResources(screen_res);
               return [NSArray arrayWithArray: tmpScreens];
@@ -4886,10 +4887,11 @@ _workAreas(Display *dpy, Window root, CGFloat screenHeight)
   monitors[0].depth = [self windowDepthForScreen: 0];
   monitors[0].resolution = [self resolutionForScreen: defScreen];
   monitors[0].frame = NSMakeRect(0, 0, xScreenSize.width, xScreenSize.height);
+  monitors[0].workArea = monitors[0].frame;
 
   if (workAreas != nil)
     {
-      monitors[0].frame = [[workAreas firstObject] rectValue];
+      monitors[0].workArea = [[workAreas firstObject] rectValue];
     }
   return [NSArray arrayWithObject: [NSNumber numberWithInt: defScreen]];
 }
@@ -5005,6 +5007,22 @@ _workAreas(Display *dpy, Window root, CGFloat screenHeight)
     }
   
   return boundsRect;
+}
+
+- (NSRect) workAreaForScreen: (int)screen
+{
+  if (screen < 0 || screen >= monitorsCount)
+    {
+      NSLog(@"Invalidparam: no screen %d", screen);
+      return NSZeroRect;
+    }
+
+  if (monitors == NULL)
+    {
+      return NSZeroRect;
+    }
+
+  return monitors[screen].workArea;
 }
 
 - (NSImage *) iconTileImage

@@ -1,10 +1,11 @@
 /* _NET_WORKAREA reports the area a window manager leaves usable, in X
- * coordinates, where y grows downwards.  A screen frame is in OpenStep
- * coordinates, where y grows upwards, so the work area's origin is flipped
+ * coordinates, where y grows downwards.  The work area of a screen is in
+ * OpenStep coordinates, where y grows upwards, so its origin is flipped
  * against the full screen height.
  *
  * A work area at the top of the screen and one at the bottom have the same
- * height and differ only in origin, so they give different screen frames.
+ * height and differ only in origin, so they give different work areas.
+ * Neither of them changes the screen frame, which is the monitor.
  *
  * The property is read for a single monitor only, so the monitor count is
  * checked first and the test skips otherwise.
@@ -21,13 +22,21 @@
 #include <X11/Xatom.h>
 #include <stdlib.h>
 
+/* The gui side of this pair declares -workAreaForScreen: on
+ * GSDisplayServer; until that is in the installed gui, the signature has to
+ * be given here or the compiler assumes the method returns id.
+ */
+@interface GSDisplayServer (WorkArea)
+- (NSRect) workAreaForScreen: (int)screen;
+@end
+
 #define STRUT 40
 
 /* Publish a work area reserving STRUT rows, at the top of the screen or at
- * the bottom, and answer the screen frame the backend then reports.
+ * the bottom, and answer the work area the backend then reports.
  */
 static NSRect
-frameForWorkAreaAtTop(GSDisplayServer *srv, Display *dpy, BOOL atTop)
+workAreaForWorkAreaAtTop(GSDisplayServer *srv, Display *dpy, BOOL atTop)
 {
   long		v[4];
   int		screen = DefaultScreen(dpy);
@@ -44,7 +53,7 @@ frameForWorkAreaAtTop(GSDisplayServer *srv, Display *dpy, BOOL atTop)
   XSync(dpy, False);
 
   [srv screenList];
-  return [srv boundsForScreen: 0];
+  return [srv workAreaForScreen: 0];
 }
 
 int
@@ -57,6 +66,7 @@ main(int argc, const char **argv)
   Display	*dpy;
   NSRect	top;
   NSRect	bottom;
+  NSRect	frame;
   int		height;
 
   if (getenv("DISPLAY") == NULL || *getenv("DISPLAY") == '\0')
@@ -89,21 +99,28 @@ main(int argc, const char **argv)
     }
 
   height = DisplayHeight(dpy, DefaultScreen(dpy));
-  bottom = frameForWorkAreaAtTop(srv, dpy, NO);
-  top = frameForWorkAreaAtTop(srv, dpy, YES);
+  bottom = workAreaForWorkAreaAtTop(srv, dpy, NO);
+  frame = [srv boundsForScreen: 0];
+  top = workAreaForWorkAreaAtTop(srv, dpy, YES);
 
   PASS(top.size.height == height - STRUT
     && bottom.size.height == height - STRUT,
-    "a work area shorter than the screen shortens the screen frame");
+    "a work area shorter than the screen is reported as such");
 
   PASS(top.origin.y == 0,
-    "a panel at the top of the screen leaves the frame at the origin");
+    "a panel at the top of the screen leaves the work area at the origin");
 
   PASS(bottom.origin.y == STRUT,
-    "a panel at the bottom of the screen moves the frame up by its height");
+    "a panel at the bottom of the screen moves the work area up by its height");
 
   PASS(NSMinY(top) != NSMinY(bottom),
-    "a panel at the top and one at the bottom give different screen frames");
+    "a panel at the top and one at the bottom give different work areas");
+
+  PASS(frame.size.height == height && frame.origin.y == 0,
+    "a work area shorter than the screen leaves the screen frame alone");
+
+  PASS(NSEqualRects(frame, [srv boundsForScreen: 0]),
+    "and the frame is the same whichever edge is reserved");
 
   END_SET("work area origin")
 

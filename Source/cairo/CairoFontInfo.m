@@ -384,7 +384,7 @@ BOOL _cairo_extents_for_NSGlyph(cairo_scaled_font_t *scaled_font, NSGlyph glyph,
 
   if (_cairo_extents_for_NSGlyph(_scaled, glyph, &ctext))
     {
-      return NSMakeRect(ctext.x_bearing, ctext.y_bearing,
+      return NSMakeRect(ctext.x_bearing, -(ctext.y_bearing + ctext.height),
                         ctext.width, ctext.height);
     }
 
